@@ -62,6 +62,9 @@ class AsyncQueue:
 
     def close(self):
         self._closed = True
+        if self.waiting and not self.items:
+            for func in self.waiting:
+                sched.call_soon(func)
 
     def put(self, item):
         if self._closed:
@@ -99,13 +102,13 @@ def producer(q: AsyncQueue, count):
 
 
 def consumer(q: AsyncQueue):
-    def _consume(item):
-        if item is None:  # <<<<<<< Queue closed check (Error)
-            print("Consumer done")
-        else:
-            print("Consuming", item)  # <<<<< Queue item (Result)
+    def _consume(result: Result):
+        try:
+            item = result.result()
+            print("Consuming", item)
             sched.call_soon(lambda: consumer(q))
-
+        except QueueClosed:
+            print("Consumer done")
     q.get(callback=_consume)
 
 
